@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { Patient, Diagnosis, EntryWithoutId, Entry, HealthCheckEntryWithoutId, HospitalEntryWithoutId, OccupationalHealthcareEntryWithoutId } from "../../types";
 import patientService from "../../services/patients";
 import diagnosisService from "../../services/diagnoses";
-import { Typography, Paper, CircularProgress, List, ListItem, Button, SelectChangeEvent } from "@mui/material"; // Import SelectChangeEvent
+import { Typography, Paper, CircularProgress, List, ListItem, Button, SelectChangeEvent } from "@mui/material";
 import EntryDetails from './EntryDetails';
 import MaleIcon from '@mui/icons-material/Male';
 import FemaleIcon from '@mui/icons-material/Female';
@@ -13,10 +13,10 @@ import EntryForm from './EntryForm';
 const PatientDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [patient, setPatient] = useState<Patient | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newEntry, setNewEntry] = useState<EntryWithoutId | null>(null);
+  const [newEntry, setNewEntry] = useState<EntryWithoutId | null>({
+    diagnosisCodes: [],
+  });
   const [entryType, setEntryType] = useState<EntryWithoutId['type']>('HealthCheck');
   const [showForm, setShowForm] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -33,17 +33,7 @@ const PatientDetailPage = () => {
       }
     };
 
-    const fetchDiagnoses = async () => {
-      try {
-        const fetchedDiagnoses = await diagnosisService.getAll();
-        setDiagnoses(fetchedDiagnoses);
-      } catch (error) {
-        console.error("Error fetching diagnoses:", error);
-      }
-    };
-
     fetchPatient();
-    fetchDiagnoses();
   }, [id]);
 
   const handleAddEntry = async () => {
@@ -59,7 +49,7 @@ const PatientDetailPage = () => {
             specialist: newEntry.specialist,
             description: newEntry.description,
             healthCheckRating: newEntry.healthCheckRating ? Number(newEntry.healthCheckRating) : undefined,
-            diagnosisCodes: newEntry.diagnosisCodes ? newEntry.diagnosisCodes.split(',').map(code => code.trim()) : [],
+            diagnosisCodes: newEntry.diagnosisCodes || [],
           } as HealthCheckEntryWithoutId;
         } else if (entryType === "Hospital") {
           entryToSend = {
@@ -71,7 +61,7 @@ const PatientDetailPage = () => {
               date: newEntry.dischargeDate,
               criteria: newEntry.dischargeCriteria,
             },
-            diagnosisCodes: newEntry.diagnosisCodes ? newEntry.diagnosisCodes.split(',').map(code => code.trim()) : [],
+            diagnosisCodes: newEntry.diagnosisCodes || [],
           } as HospitalEntryWithoutId;
         } else if (entryType === "OccupationalHealthcare") {
           entryToSend = {
@@ -84,7 +74,7 @@ const PatientDetailPage = () => {
               startDate: newEntry.sickLeaveStartDate,
               endDate: newEntry.sickLeaveEndDate,
             },
-            diagnosisCodes: newEntry.diagnosisCodes ? newEntry.diagnosisCodes.split(',').map(code => code.trim()) : [],
+            diagnosisCodes: newEntry.diagnosisCodes || [],
           } as OccupationalHealthcareEntryWithoutId;
         }
 
@@ -107,12 +97,19 @@ const PatientDetailPage = () => {
     setNewEntry({
       ...newEntry,
       [event.target.name]: event.target.value,
-    } as EntryWithoutId); // Cast to EntryWithoutId
+    } as EntryWithoutId);
   };
 
   const handleTypeChange = (event: SelectChangeEvent<EntryWithoutId['type']>) => {
     setEntryType(event.target.value as EntryWithoutId['type']);
     setNewEntry(null); // Reset new entry when type changes
+  };
+
+  const handleDiagnosisCodesChange = (codes: string[]) => {
+    setNewEntry((prev) => ({
+      ...prev,
+      diagnosisCodes: codes, // Update the diagnosisCodes in newEntry
+    }));
   };
 
   if (loading) {
@@ -179,6 +176,8 @@ const PatientDetailPage = () => {
           handleTypeChange={handleTypeChange}
           handleAddEntry={handleAddEntry}
           setShowForm={setShowForm}
+          setDiagnosisCodes={handleDiagnosisCodesChange}
+          newEntry={newEntry}
         />
       )}
     </Paper>

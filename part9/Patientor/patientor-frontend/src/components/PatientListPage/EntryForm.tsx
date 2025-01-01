@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { EntryWithoutId } from '../../types';
 import { SelectChangeEvent } from '@mui/material';
+import diagnosesService from '../../services/diagnoses';
+import { Diagnosis } from '../../types';
 
 interface EntryFormProps {
   entryType: EntryWithoutId['type'];
@@ -9,6 +11,8 @@ interface EntryFormProps {
   handleTypeChange: (event: SelectChangeEvent<EntryWithoutId['type']>) => void;
   handleAddEntry: () => void;
   setShowForm: (show: boolean) => void;
+  setDiagnosisCodes: (codes: string[]) => void;
+  newEntry: EntryWithoutId | null;
 }
 
 const EntryForm: React.FC<EntryFormProps> = ({
@@ -17,7 +21,94 @@ const EntryForm: React.FC<EntryFormProps> = ({
   handleTypeChange,
   handleAddEntry,
   setShowForm,
+  setDiagnosisCodes,
+  newEntry,
 }) => {
+  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+  const [selectedDiagnosisCodes, setSelectedDiagnosisCodes] = useState<string[]>([]);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    const fetchDiagnoses = async () => {
+      const data = await diagnosesService.getAll();
+      setDiagnoses(data);
+    };
+    fetchDiagnoses();
+  }, []);
+
+  const handleDiagnosisChange = (event: SelectChangeEvent<string[]>) => {
+    const selectedCodes = event.target.value as string[];
+    setSelectedDiagnosisCodes(selectedCodes);
+    setDiagnosisCodes(selectedCodes);
+  };
+
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    
+    // Common validations
+    if (!selectedDiagnosisCodes.length) {
+      newErrors.diagnosisCodes = "At least one diagnosis code is required.";
+    }
+    if (!entryType) {
+      newErrors.entryType = "Entry type is required.";
+    }
+    if (!newEntry?.description) {
+      newErrors.description = "Description is required.";
+    }
+    if (!newEntry?.date) {
+      newErrors.date = "Date is required.";
+    }
+
+    // Entry type specific validations
+    switch (entryType) {
+      case "HealthCheck":
+        if (!newEntry?.specialist) {
+          newErrors.specialist = "Specialist is required.";
+        }
+        if (newEntry?.healthCheckRating === undefined) {
+          newErrors.healthCheckRating = "Health Check Rating is required.";
+        }
+        break;
+      case "Hospital":
+        if (!newEntry?.dischargeDate) {
+          newErrors.dischargeDate = "Discharge Date is required.";
+        }
+        if (!newEntry?.dischargeCriteria) {
+          newErrors.dischargeCriteria = "Discharge Criteria is required.";
+        }
+        if (!newEntry?.specialist) {
+          newErrors.specialist = "Specialist is required.";
+        }
+        break;
+      case "OccupationalHealthcare":
+        if (!newEntry?.employerName) {
+          newErrors.employerName = "Employer Name is required.";
+        }
+        if (!newEntry?.sickLeaveStartDate) {
+          newErrors.sickLeaveStartDate = "Sick Leave Start Date is required.";
+        }
+        if (!newEntry?.sickLeaveEndDate) {
+          newErrors.sickLeaveEndDate = "Sick Leave End Date is required.";
+        }
+        if (!newEntry?.specialist) {
+          newErrors.specialist = "Specialist is required.";
+        }
+        break;
+      default:
+        break;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0; // Return true if no errors
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (validateForm()) {
+      handleAddEntry();
+    }
+  };
+
   const renderEntryFields = () => {
     switch (entryType) {
       case "HealthCheck":
@@ -43,6 +134,8 @@ const EntryForm: React.FC<EntryFormProps> = ({
               onChange={handleChange}
               fullWidth
               style={{ marginTop: "10px" }}
+              error={!!errors.specialist}
+              helperText={errors.specialist}
             />
           </>
         );
@@ -59,6 +152,8 @@ const EntryForm: React.FC<EntryFormProps> = ({
               InputLabelProps={{
                 shrink: true,
               }}
+              error={!!errors.dischargeDate}
+              helperText={errors.dischargeDate}
             />
             <TextField
               label="Discharge Criteria"
@@ -66,6 +161,8 @@ const EntryForm: React.FC<EntryFormProps> = ({
               onChange={handleChange}
               fullWidth
               style={{ marginTop: "10px" }}
+              error={!!errors.dischargeCriteria}
+              helperText={errors.dischargeCriteria}
             />
             <TextField
               label="Specialist"
@@ -73,6 +170,8 @@ const EntryForm: React.FC<EntryFormProps> = ({
               onChange={handleChange}
               fullWidth
               style={{ marginTop: "10px" }}
+              error={!!errors.specialist}
+              helperText={errors.specialist}
             />
           </>
         );
@@ -85,6 +184,8 @@ const EntryForm: React.FC<EntryFormProps> = ({
               onChange={handleChange}
               fullWidth
               style={{ marginTop: "10px" }}
+              error={!!errors.employerName}
+              helperText={errors.employerName}
             />
             <TextField
               label="Sick Leave Start Date"
@@ -96,6 +197,8 @@ const EntryForm: React.FC<EntryFormProps> = ({
               InputLabelProps={{
                 shrink: true,
               }}
+              error={!!errors.sickLeaveStartDate}
+              helperText={errors.sickLeaveStartDate}
             />
             <TextField
               label="Sick Leave End Date"
@@ -107,6 +210,8 @@ const EntryForm: React.FC<EntryFormProps> = ({
               InputLabelProps={{
                 shrink: true,
               }}
+              error={!!errors.sickLeaveEndDate}
+              helperText={errors.sickLeaveEndDate}
             />
             <TextField
               label="Specialist"
@@ -114,6 +219,8 @@ const EntryForm: React.FC<EntryFormProps> = ({
               onChange={handleChange}
               fullWidth
               style={{ marginTop: "10px" }}
+              error={!!errors.specialist}
+              helperText={errors.specialist}
             />
           </>
         );
@@ -123,69 +230,86 @@ const EntryForm: React.FC<EntryFormProps> = ({
   };
 
   return (
-    <div style={{ marginTop: "20px" }}>
-      <FormControl fullWidth>
-        <InputLabel id="entry-type-label">Entry Type</InputLabel>
-        <Select
-          labelId="entry-type-label"
-          value={entryType}
-          onChange={handleTypeChange}
+    <form onSubmit={handleSubmit}>
+      <div style={{ marginTop: "20px" }}>
+        <FormControl fullWidth>
+          <InputLabel id="entry-type-label">Entry Type</InputLabel>
+          <Select
+            labelId="entry-type-label"
+            value={entryType}
+            onChange={handleTypeChange}
+            error={!!errors.entryType}
+          >
+            <MenuItem value="HealthCheck">Health Check</MenuItem>
+            <MenuItem value="Hospital">Hospital</MenuItem>
+            <MenuItem value="OccupationalHealthcare">Occupational Healthcare</MenuItem>
+          </Select>
+          {errors.entryType && <p style={{ color: 'red' }}>{errors.entryType}</p>}
+        </FormControl>
+
+        <TextField
+          label="Description"
+          name="description"
+          onChange={handleChange}
+          fullWidth
+          style={{ marginTop: "10px" }}
+          error={!!errors.description}
+          helperText={errors.description}
+        />
+
+        <TextField
+          label="Date"
+          name="date"
+          onChange={handleChange}
+          fullWidth
+          style={{ marginTop: "10px" }}
+          type="date"
+          InputLabelProps={{
+            shrink: true,
+          }}
+          error={!!errors.date}
+          helperText={errors.date}
+        />
+
+        {renderEntryFields()}
+
+        <FormControl fullWidth style={{ marginTop: "10px" }}>
+          <InputLabel id="diagnosis-codes-label">Diagnosis Codes</InputLabel>
+          <Select
+            labelId="diagnosis-codes-label"
+            multiple
+            value={selectedDiagnosisCodes}
+            onChange={handleDiagnosisChange}
+            renderValue={(selected) => selected.join(', ')}
+          >
+            {diagnoses.map((diagnosis) => (
+              <MenuItem key={diagnosis.code} value={diagnosis.code}>
+                {diagnosis.name} ({diagnosis.code})
+              </MenuItem>
+            ))}
+          </Select>
+          {errors.diagnosisCodes && <p style={{ color: 'red' }}>{errors.diagnosisCodes}</p>}
+        </FormControl>
+
+        <Button
+          variant="contained"
+          color="secondary"
+          type="submit"
+          style={{ marginTop: "10px" }}
         >
-          <MenuItem value="HealthCheck">Health Check</MenuItem>
-          <MenuItem value="Hospital">Hospital</MenuItem>
-          <MenuItem value="OccupationalHealthcare">Occupational Healthcare</MenuItem>
-        </Select>
-      </FormControl>
+          ADD
+        </Button>
 
-      <TextField
-        label="Description"
-        name="description"
-        onChange={handleChange}
-        fullWidth
-        style={{ marginTop: "10px" }}
-      />
-
-      <TextField
-        label="Date"
-        name="date"
-        onChange={handleChange}
-        fullWidth
-        style={{ marginTop: "10px" }}
-        type="date"
-        InputLabelProps={{
-          shrink: true,
-        }}
-      />
-
-      {renderEntryFields()}
-
-      <TextField
-        label="Diagnosis Codes"
-        name="diagnosisCodes"
-        onChange={handleChange}
-        fullWidth
-        style={{ marginTop: "10px" }}
-        placeholder="Enter codes separated by commas"
-      />
-
-      <Button
-        variant="contained"
-        color="secondary"
-        onClick={handleAddEntry}
-        style={{ marginTop: "10px" }}
-      >
-        ADD
-      </Button>
-
-      <Button
-        variant="outlined"
-        color="error"
-        onClick={() => setShowForm(false)}
-        style={{ marginTop: "10px", marginLeft: "10px" }}
-      >
-        CANCEL
-      </Button>
-    </div>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={() => setShowForm(false)}
+          style={{ marginTop: "10px", marginLeft: "10px" }}
+        >
+          CANCEL
+        </Button>
+      </div>
+    </form>
   );
 };
 
